@@ -1,0 +1,609 @@
+---
+title: 'Exploratory Data Analysis with R: Campaign Contributions in New York 2008 & 2012'
+author: "Sara Zeid"
+date: "August 21, 2015"
+output: html_document
+---
+
+#Analysis of 2008 and 2012 Federal Campaign Contributions in the State of New York
+
+## Loading Relevant Packages and Data
+
+```{r, echo=TRUE, results='asis'}
+library(plyr)
+library(grid)
+library(ggplot2)
+library(DT)
+
+eight <- read.csv("08.csv", header=T, stringsAsFactors=F, na.strings="", colClasses=c("character", "character", "character", "character", "character", "character","character", "character", "character", "character", "numeric", "character", "character", "character"))
+twelve <- read.csv("12.csv", header=T, stringsAsFactors=F, na.strings="", colClasses=c("character", "character", "character", "character", "character", "character","character", "character", "character", "character", "numeric", "character", "character", "character"))
+eight$contb_receipt_dt <- as.Date(eight$contb_receipt_dt, "%m/%d/%Y")
+twelve$contb_receipt_dt <- as.Date(twelve$contb_receipt_dt, "%m/%d/%Y")
+```
+
+###2008 Primary and Presidential Sums
+
+```{r, echo=TRUE, results='asis'}
+eightp <- subset(eight, election_tp=="P2008")
+eightpsum <- ddply(eightp, c("cand_nm", "party_id"), summarise,
+                   total=sum(contb_receipt_amt,na.rm=T))
+
+ggplot(eightpsum, aes(x=reorder(cand_nm, -total), y=total, fill=party_id))+geom_bar(stat="identity") + ggtitle("Contributions 2008 Primary")+
+  xlab("Candidate Name")+ylab("Total Contributions Received")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))+geom_text(aes(label=total, angle=60, hjust=.44))+
+  theme(plot.margin=unit(c(.6,0,0,0), "cm"))
+
+eightg <- subset(eight, election_tp=="G2008" & 
+                   (cand_nm=="Obama Barack" |cand_nm=="McCain John S"))
+eightgsum <- ddply(eightg, "cand_nm", summarise, total=sum(contb_receipt_amt, 
+                                                           na.rm=T))
+
+ggplot(eightgsum, aes(x=cand_nm, y=total))+geom_bar(stat="identity", fill="orange") + 
+  ggtitle("Contributions 2008 Presidential Election")+
+  geom_text(aes(label=total, hjust=.5))+
+  xlab("Candidate Name")+ylab("Total Contributions Received")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+```
+
+###2012 Primary and Presidential Sums
+
+```{r, echo=TRUE, results='asis'}
+twelp <- subset(twelve, election_tp=="P2012")
+twelpsum <- ddply(twelp, c("cand_nm", "party_id"), summarise, total=sum(contb_receipt_amt, 
+                                                           na.rm=T))
+
+ggplot(twelpsum, aes(x=reorder(cand_nm, -total), y=total, fill=party_id))+geom_bar(stat="identity") + 
+  ggtitle("Contributions 2012 Primary")+
+  xlab("Candidate Name")+ylab("Total Contributions Received")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))+geom_text(aes(label=total, angle=45, hjust=.445))+
+  theme(plot.margin=unit(c(1,0,0,0), "cm"))
+
+twelg <- subset(twelve, election_tp=="G2012" & 
+                   (cand_nm=="Obama Barack" |cand_nm=="Romney Mitt"))
+twelgsum <- ddply(twelg, "cand_nm", summarise, total=sum(contb_receipt_amt, 
+                                                           na.rm=T))
+
+ggplot(twelgsum, aes(x=cand_nm, y=total))+geom_bar(stat="identity", fill="orange") + 
+  ggtitle("Contributions 2012 Presidential Election")+
+  geom_text(aes(label=total, hjust=.5))+
+  xlab("Candidate Name")+ylab("Total Contributions Received")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+```
+
+###Campaign Contributions by Zipcode and Party (Democratic and Republican)--Top Ten:
+
+```{r, echo=TRUE, results='asis'}
+data <- rbind(eight, twelve)
+r <- subset(data, party_id=="R")
+zipr <- ddply(r, "contbr_zipcode", summarise, tot=sum(contb_receipt_amt))
+zipr <- zipr[order(-zipr$tot),]
+ziptenr <- zipr[1:10,]
+datatable(ziptenr)
+
+d <- subset(data, party_id=="D")
+zipd <- ddply(d, "contbr_zipcode", summarise, tot=sum(contb_receipt_amt))
+zipd <- zipd[order(-zipd$tot),]
+ziptend <- zipd[1:10,]
+datatable(ziptend)
+```
+
+###Campaign Contributions by Employer and Party (Democratic and Republican)--Top Ten:
+
+```{r, echo=TRUE, results='asis'}
+#Republican
+data <- rbind(eight, twelve)
+remp <- subset(data, party_id=="R")
+remp$contbr_employer <- sub("RETIREDIRED", "RETIRED", remp$contbr_employer)
+remp$contbr_employer <- gsub("[[:punct:]+[:space:]]", "", remp$contbr_employer)
+empr <- ddply(remp, "contbr_employer", summarise, tot=sum(contb_receipt_amt, na.rm=T))
+empr <- empr[order(-empr$tot),]
+emptenr <- empr[1:10,]
+datatable(emptenr)
+
+#Democratic
+demp <- subset(data, party_id=="D")
+demp$contbr_employer <- sub("NOT EMPLOYED", "UNEMPLOYED", demp$contbr_employer)
+demp$contbr_employer <- gsub("[[:punct:]+[:space:]]", "", demp$contbr_employer)
+empd <- ddply(demp, "contbr_employer", summarise, tot=sum(contb_receipt_amt, na.rm=T))
+empd <- empd[order(-empd$tot),]
+emptend <- empd[1:10,]
+datatable(emptend)
+```
+
+###Campaign Contributions by Individual and Party (Democratic and Republican)--Top Ten:
+
+```{r, echo=TRUE, results='asis'}
+#Republican
+data <- rbind(eight, twelve)
+rind <- subset(data, party_id=="R")
+rind$contbr_nm <- gsub("[[:punct:]+[:space:]]", "", rind$contbr_nm)
+indr <- ddply(rind, "contbr_nm", summarise, tot=sum(contb_receipt_amt, na.rm=T))
+indr <- indr[order(-indr$tot),]
+indtenr <- indr[1:10,]
+datatable(indtenr)
+
+#Democratic
+dind <- subset(data, party_id=="D")
+dind$contbr_nm <- gsub("[[:punct:]+[:space:]]", "", dind$contbr_nm)
+indd <- ddply(dind, "contbr_nm", summarise, tot=sum(contb_receipt_amt, na.rm=T))
+indd <- indd[order(-indd$tot),]
+indtend <- indd[1:10,]
+datatable(intend)
+```
+
+##Average Primary and Presidential Campaign Contributions in NY for 2008
+
+```{r, echo=TRUE, results='asis'}
+eightpg <- ddply(eight, c("cand_nm", "election_tp", "party_id"), summarise, mean=mean(contb_receipt_amt, na.rm=T))
+eightp <- subset(eightpg, election_tp=="P2008")
+eightg <- subset(eightpg, election_tp=="G2008" & cand_nm=="Obama Barack" |
+                   election_tp=="G2008" & cand_nm=="McCain John S")
+eightp$mean <- round(eightp$mean)
+
+ggplot(eightp, aes(x=reorder(cand_nm, -mean), y=mean, fill=party_id))+geom_bar(stat="identity") + 
+  geom_text(aes(label=mean), vjust=-.3)+ggtitle("Average Campaign Contributions In 2008 Primary")+
+  xlab("Candidate Name")+ylab("Average Contribution")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+```
+
+##Average Primary and Presidential Campaign Contributions in NY for 2012
+
+```{r, echo=TRUE, results='asis'}
+twelpg <- ddply(twelve, c("cand_nm", "election_tp", "party_id"), summarise, mean=mean(contb_receipt_amt, na.rm=T))
+twelp <- subset(twelpg, election_tp=="P2012")
+twelg <- subset(twelpg, election_tp=="G2012" & cand_nm=="Obama Barack" |
+                  election_tp=="G2012" & cand_nm=="Romney Mitt")
+twelp$mean <- round(twelp$mean)
+
+ggplot(twelp, aes(x=reorder(cand_nm, -mean), y=mean, fill=party_id))+geom_bar(stat="identity") + 
+  geom_text(aes(label=mean), vjust=-.3)+ggtitle("Average Campaign Contributions In 2012 Primary")+
+  xlab("Candidate Name")+ylab("Average Contribution")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+```
+
+##2008 Boxplot
+
+```{r, echo=TRUE, results='asis'}
+eightb <- subset(eight, election_tp=="P2008")
+eightbp <- subset(eight, election_tp=="G2008" & cand_nm=="Obama Barack" | 
+                    election_tp=="G2008" & cand_nm=="McCain John S")
+
+ggplot(eightb, aes(x=cand_nm, y=contb_receipt_amt, col=party_id))+geom_boxplot(outlier.size=2, outlier.shape=21, fatten=2.5)+
+ggtitle("Boxplot of Campaign Contributions for 2008 Primary")+
+  xlab("Candidate Name")+ylab("Contribution Range")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=12.5))+
+  scale_y_continuous(limits=c(-2500, 2500))+
+  stat_summary(fun.y=mean, geom="point", shape=23, size=3, fill="white")+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+ggplot(eightbp, aes(x=cand_nm, y=contb_receipt_amt, col=party_id))+geom_boxplot(outlier.size=2, outlier.shape=21, fatten=2.5)+
+  ggtitle("Boxplot of Campaign Contributions for 2008 Presidential Election ")+
+  xlab("Candidate Name")+ylab("Contribution Range")+
+  scale_y_continuous(limits=c(-2500, 2500))+
+  stat_summary(fun.y=mean, geom="point", shape=23, size=3, fill="white")+
+  theme(axis.text.x=element_text(size=13))+
+  theme(axis.text.y = element_text(size=13))+
+  theme(title=element_text(size=16))
+```
+
+##2012 Boxplot
+
+```{r, echo=TRUE, results='asis'}
+twelb <- subset(twelve, election_tp=="P2012")
+twelbp <- subset(twelve, election_tp=="G2012" & cand_nm=="Obama Barack" | 
+                    election_tp=="G2012" & cand_nm=="Romney Mitt")
+
+ggplot(twelb, aes(x=cand_nm, y=contb_receipt_amt, col=party_id))+geom_boxplot(outlier.size=2, outlier.shape=21, fatten=2.5)+
+  ggtitle("Boxplot of Campaign Contributions for 2012 Primary")+
+  xlab("Candidate Name")+ylab("Contribution Range")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=13))+
+  scale_y_continuous(limits=c(-2500, 2500))+
+  stat_summary(fun.y=mean, geom="point", shape=23, size=3, fill="white")+
+  theme(axis.text.y = element_text(size=13))+
+  theme(title=element_text(size=16))
+
+ggplot(twelbp, aes(x=cand_nm, y=contb_receipt_amt, col=party_id))+geom_boxplot(outlier.size=2, outlier.shape=21, fatten=2.5)+
+  ggtitle("Boxplot of Campaign Contributions for 2012 Presidential Election ")+
+  xlab("Candidate Name")+ylab("Contribution Range")+
+  scale_y_continuous(limits=c(-2500, 2500))+
+  stat_summary(fun.y=mean, geom="point", shape=23, size=3, fill="white")+
+  theme(axis.text.x=element_text(size=13))+
+  theme(axis.text.y = element_text(size=13))+
+  theme(title=element_text(size=16))
+```
+
+##Loyalty to Individual or Party?
+###Contributors in NY who contributed in 2008 Primary and Presidential Election:
+
+```{r, echo=TRUE, results='asis'}
+sum(length(unique(eight$contbr_nm))) #123792
+
+eightlp <- ddply(eight, c("cand_nm", "party_id", "election_tp"), summarize, All=length(unique(contbr_nm)))
+
+eightlpc <- ddply(eight, .(contbr_nm), summarize, All=length(contbr_nm),
+            Obamapri=sum(cand_nm=="Obama Barack" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Giuliani=sum(cand_nm=="Giuliani Rudolph W" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Thompson=sum(cand_nm=="Thompson Fred Dalton" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Paul=sum(cand_nm=="Paul Ron" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Tancredo=sum(cand_nm=="Tancredo Thomas Gerald" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Brownback=sum(cand_nm=="Brownback Samuel Dale" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Cox=sum(cand_nm=="Cox John H" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Clinton=sum(cand_nm=="Clinton Hillary Rodham" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            McCainpri=sum(cand_nm=="McCain John S" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Biden=sum(cand_nm=="Biden Joseph R Jr" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Edwards=sum(cand_nm=="Edwards John" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Richardson=sum(cand_nm=="Richardson Bill" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Gravel=sum(cand_nm=="Gravel Mike" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            ThompsonTommy=sum(cand_nm=="Thompson Tommy G" & election_tp=="P2008" & contb_receipt_amt > 0),
+            Romney=sum(cand_nm=="Romney Mitt" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Gilmore=sum(cand_nm=="Gilmore James S III" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Kucinich=sum(cand_nm=="Kucinich Dennis J" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Dodd=sum(cand_nm=="Dodd Christopher J" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Huckabee=sum(cand_nm=="Huckabee Mike" & election_tp=="P2008" & contb_receipt_amt > 0), 
+            Hunter=sum(cand_nm=="Hunter Duncan" & election_tp=="P2008" & contb_receipt_amt > 0),             
+            Obamagen=sum(cand_nm=="Obama Barack" & election_tp=="G2008" & contb_receipt_amt > 0),
+            McCaingen=sum(cand_nm=="McCain John S" & election_tp=="G2008" & contb_receipt_amt > 0))
+
+#For each Democratic candidate:
+sum(eightlpc$Richardson>0 & eightlpc$Obamagen >0, na.rm=T
+
+#For each Republican candidate:
+
+sum(eightlpc$ThompsonTommy > 0 & eightlpc$McCaingen >0, na.rm=T)
+
+#Add new column with numbers:
+
+eightlp2 <- subset(eightlp, election_tp=="P2008")
+eightlp2 <- eightlp2[order(eightlp2$party_id),]
+eightlp2$proportion <- c(187, 3118, 159, 764, 4, 42, 22061, 263, 3, 0, 0, 331, 
+                         0, 3, 1657, 1, 82, 1, 43, 0)
+eightlp2$aspercent <- round((eightlp2$proportion/eightlp2$All)*100)
+```
+
+###Contributors in NY who contributed in 2008 Primary and Presidential Election:
+
+```{r, echo=TRUE, results='asis'}
+sum(length(unique(twelve$contbr_nm))) #95,005
+
+twellpc <- ddply(twelve, .(contbr_nm), summarize, All=length(contbr_nm),
+                  Obamapri=sum(cand_nm=="Obama Barack" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Bachmann=sum(cand_nm=="Bachmann Michele" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Romneypri=sum(cand_nm=="Romney Mitt" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Santorum=sum(cand_nm=="Santorum Rick" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Huntsman=sum(cand_nm=="Huntsman Jon" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Perry=sum(cand_nm=="Perry Rick" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Roemer=sum(cand_nm=="Roemer Charles E. 'Buddy' III" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Paul=sum(cand_nm=="Paul Ron" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Gingrich=sum(cand_nm=="Gingrich Newt" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Pawlenty=sum(cand_nm=="Pawlenty Timothy" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Cain=sum(cand_nm=="Cain Herman" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  McCotter=sum(cand_nm=="McCotter Thaddeus G" & election_tp=="P2012" & contb_receipt_amt > 0), 
+                  Obamagen=sum(cand_nm=="Obama Barack" & election_tp=="G2012" & contb_receipt_amt > 0),
+                  Romneygen=sum(cand_nm=="Romney Mitt" & election_tp=="G2012" & contb_receipt_amt > 0))
+
+#For each Democratic candidate:
+
+sum(twellpc$Obamapri>0 & twellpc$Obamagen>0, na.rm=T)
+
+#For each Republican candidate:
+
+sum(twellpc$Bachmann>0 & twellpc$Romneygen >0, na.rm=T)
+
+#New column:
+
+twellp <- ddply(twelve, c("cand_nm", "party_id", "election_tp"), summarize, All=length(unique(contbr_nm)))
+twellp <- subset(twellp, election_tp=="P2012" & party_id=="R" | election_tp=="P2012" & party_id=="D")
+twellp2 <- twellp[order(twellp$cand_nm),]
+twellp2$proportion <- c(29, 46, 113, 34, 1, 30390, 20, 27, 34, 3, 4747, 98)
+twellp2$aspercent <- round((twellp2$proportion/twellp2$All)*100)
+```
+
+###Appears that people are loyal to individual and not the party. 
+
+##Contribution Trajectories:
+###2008 Primary and Presidential Election:
+```{r, echo=TRUE, results='asis'}
+# 2008 Republican Primary:
+eightprir <- subset(eight, election_tp=="P2008" & party_id=="R" & contb_receipt_dt<"2008-09-04")
+eightprir <- eightprir[order(eightprir$contb_receipt_dt),]
+eightprir$contb_receipt_amt[ is.na(eightprir$contb_receipt_amt) ] <- 0
+eightprir$cumsum <- cumsum(eightprir$contb_receipt_amt)
+
+#2008 Democratic Primary:
+eightprid <- subset(eight, election_tp=="P2008" & party_id=="D" & contb_receipt_dt<"2008-08-28")
+eightprid <- eightprid[order(eightprid$contb_receipt_dt),]
+eightprid$contb_receipt_amt[ is.na(eightprid$contb_receipt_amt) ] <- 0
+eightprid$cumsum <- cumsum(eightprid$contb_receipt_amt)
+
+eightpri <-rbind(eightprir, eightprid)
+
+ggplot(eightpri, aes(x=contb_receipt_dt, y=cumsum, colour=party_id))+
+  geom_line()+ggtitle("Trajectory of Contributions Received for 2008 Primary")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+#2008 Presidential:
+
+eight$contb_receipt_amt <- as.numeric(eight$contb_receipt_amt)
+
+eightob <- subset(eight, election_tp=="G2008" & cand_nm=="Obama Barack" & contb_receipt_dt<"2008-11-04")
+eightmc <- subset(eight, election_tp=="G2008" & cand_nm=="McCain John S" & contb_receipt_dt<"2008-11-04")
+
+eightob <- eightob[order(eightob$contb_receipt_dt),]
+eightob$contb_receipt_amt[ is.na(eightob$contb_receipt_amt) ] <- 0
+eightob$cumsum <- cumsum(eightob$contb_receipt_amt)
+
+eightmc <- eightmc[order(eightmc$contb_receipt_dt),]
+eightmc$contb_receipt_amt[ is.na(eightmc$contb_receipt_amt) ] <- 0
+eightmc$cumsum <- cumsum(eightmc$contb_receipt_amt)
+
+eightgen <-rbind(eightob, eightmc)
+
+ggplot(eightgen, aes(x=contb_receipt_dt, y=cumsum, colour=cand_nm))+
+  geom_line()+ggtitle("Trajectory of Contributions Received for 2008 Presidential Election")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+```
+
+###2012 Primary and Presidential Election:
+```{r, echo=TRUE, results='asis'}
+#2012 Republican Primary:
+twelprir <- subset(twelve, election_tp=="P2012" & party_id=="R" & contb_receipt_dt<"2012-06-26")
+twelprir <- twelprir[order(twelprir$contb_receipt_dt),]
+twelprir$contb_receipt_amt[ is.na(twelprir$contb_receipt_amt) ] <- 0
+twelprir$cumsum <- cumsum(twelprir$contb_receipt_amt)
+
+#2012 Democratic Primary:
+twelprid <- subset(twelve, election_tp=="P2012" & party_id=="D" & contb_receipt_dt<"2012-06-05")
+twelprid <- twelprid[order(twelprid$contb_receipt_dt),]
+twelprid$contb_receipt_amt[ is.na(twelprid$contb_receipt_amt) ] <- 0
+twelprid$cumsum <- cumsum(twelprid$contb_receipt_amt)
+twelpri <-rbind(twelprir, twelprid)
+
+ggplot(twelpri, aes(x=contb_receipt_dt, y=cumsum, colour=party_id))+
+  geom_line()+ggtitle("Trajectory of Contributions Received for 2012 Primary")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+#2012 Presidential:
+
+twelob <- subset(twelve, election_tp=="G2012" & cand_nm=="Obama Barack" & contb_receipt_dt<"2012-11-06")
+twelrom <- subset(twelve, election_tp=="G2012" & cand_nm=="Romney Mitt" & contb_receipt_dt<"2012-11-06")
+
+twelob <- twelob[order(twelob$contb_receipt_dt),]
+twelob$contb_receipt_amt[ is.na(twelob$contb_receipt_amt) ] <- 0
+twelob$cumsum <- cumsum(twelob$contb_receipt_amt)
+
+twelrom <- twelrom[order(twelrom$contb_receipt_dt),]
+twelrom$contb_receipt_amt[ is.na(twelrom$contb_receipt_amt) ] <- 0
+twelrom$cumsum <- cumsum(twelrom$contb_receipt_amt)
+
+twelgen <-rbind(twelob, twelrom)
+
+ggplot(twelgen, aes(x=contb_receipt_dt, y=cumsum, colour=cand_nm))+
+  geom_line()+ggtitle("Trajectory of Contributions Received for 2012 Presidential Election")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+```
+
+##Regression:
+
+```{r, echo=TRUE, results='asis'}
+#Republican Primary 2008 and 2012:
+eightprir <- subset(eight, election_tp=="P2008" & party_id=="R" & contb_receipt_dt<"2008-09-04")
+eightprir <- eightprir[order(eightprir$contb_receipt_dt),]
+eightprir$contb_receipt_amt[ is.na(eightprir$contb_receipt_amt) ] <- 0
+eightprir$cumsum <- cumsum(eightprir$contb_receipt_amt)
+eightprir$newdate <- eightprir$contb_receipt_dt-as.Date("2008-09-04")
+
+twelprir <- subset(twelve, election_tp=="P2012" & party_id=="R" & contb_receipt_dt<"2012-06-26")
+twelprir <- twelprir[order(twelprir$contb_receipt_dt),]
+twelprir$contb_receipt_amt[ is.na(twelprir$contb_receipt_amt) ] <- 0
+twelprir$cumsum <- cumsum(twelprir$contb_receipt_amt)
+twelprir$newdate <- twelprir$contb_receipt_dt-as.Date("2012-06-26")
+
+etprir <- rbind(eightprir, twelprir)
+etprir$newdate <- as.numeric(etprir$newdate)
+
+ggplot(etprir, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Primary Republican Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept = 22475434, slope = 34509)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+etprir <- lm(cumsum ~ newdate, data = etprir)
+summary(etprir)
+
+geom_smooth(method="lm",col="black") #Instead of geom_abline
+
+#Democratic Primary 2008 and 2012:
+
+eightprid <- subset(eight, election_tp=="P2008" & party_id=="D" & contb_receipt_dt<"2008-08-28")
+eightprid <- eightprid[order(eightprid$contb_receipt_dt),]
+eightprid$contb_receipt_amt[ is.na(eightprid$contb_receipt_amt) ] <- 0
+eightprid$cumsum <- cumsum(eightprid$contb_receipt_amt)
+eightprid$newdate <- eightprid$contb_receipt_dt-as.Date("2008-08-28")
+
+twelprid <- subset(twelve, election_tp=="P2012" & party_id=="D" & contb_receipt_dt<"2012-06-05")
+twelprid <- twelprid[order(twelprid$contb_receipt_dt),]
+twelprid$contb_receipt_amt[ is.na(twelprid$contb_receipt_amt) ] <- 0
+twelprid$cumsum <- cumsum(twelprid$contb_receipt_amt)
+twelprid$newdate <- twelprid$contb_receipt_dt-as.Date("2012-06-05")
+
+etprid <- rbind(eightprid, twelprid)
+etprid$newdate <- as.numeric(etprid$newdate)
+
+ggplot(etprid, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Primary Democratic Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept=47762544, slope=68874)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+etprid <- lm(cumsum ~ newdate, data = etprid)
+summary(etprid)
+
+geom_smooth(method="lm",col="black") #Instead of geom_abline
+
+#Republican Presidential 2008 and 2012:
+
+eightmc <- subset(eight, election_tp=="G2008" & cand_nm=="McCain John S" & contb_receipt_dt<"2008-11-04")
+eightmc <- eightmc[order(eightmc$contb_receipt_dt),]
+eightmc$contb_receipt_amt[ is.na(eightmc$contb_receipt_amt) ] <- 0
+eightmc$cumsum <- cumsum(eightmc$contb_receipt_amt)
+eightmc$newdate <- eightmc$contb_receipt_dt-as.Date("2008-11-04")
+
+twelrom <- subset(twelve, election_tp=="G2012" & cand_nm=="Romney Mitt" & contb_receipt_dt<"2012-11-06")
+twelrom <- twelrom[order(twelrom$contb_receipt_dt),]
+twelrom$contb_receipt_amt[ is.na(twelrom$contb_receipt_amt) ] <- 0
+twelrom$cumsum <- cumsum(twelrom$contb_receipt_amt)
+twelrom$newdate <- twelrom$contb_receipt_dt-as.Date("2012-11-06")
+
+rpres <- rbind(eightmc, twelrom)
+rpres$newdate <- as.numeric(rpres$newdate)
+
+ggplot(rpres, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Republican General Presidential Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept=13774667, slope=73413)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+rpres <- lm(cumsum ~ newdate, data = rpres)
+summary(rpres)
+geom_smooth(method="lm",col="black") #Instead of geom_abline
+
+#Democratic Presidential 2008 & 2012:
+
+eightob <- subset(eight, election_tp=="G2008" & cand_nm=="Obama Barack" & contb_receipt_dt<"2008-11-04")
+eightob <- eightob[order(eightob$contb_receipt_dt),]
+eightob$contb_receipt_amt[ is.na(eightob$contb_receipt_amt) ] <- 0
+eightob$cumsum <- cumsum(eightob$contb_receipt_amt)
+eightob$newdate <- eightob$contb_receipt_dt-as.Date("2008-11-04")
+
+twelob <- subset(twelve, election_tp=="G2012" & cand_nm=="Obama Barack" & contb_receipt_dt<"2012-11-06")
+twelob <- twelob[order(twelob$contb_receipt_dt),]
+twelob$contb_receipt_amt[ is.na(twelob$contb_receipt_amt) ] <- 0
+twelob$cumsum <- cumsum(twelob$contb_receipt_amt)
+twelob$newdate <- twelob$contb_receipt_dt-as.Date("2012-11-06")
+
+dpres <- rbind(eightob, twelob)
+dpres$newdate <- as.numeric(dpres$newdate)
+
+ggplot(dpres, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Democratic General Presidential Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept=20133053, slope=108215)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+dpres <- lm(cumsum ~ newdate, data = dpres)
+dpres
+summary(dpres)
+geom_smooth(method="lm",col="black") #Instead of geom_abline
+
+#ALL FOUR:
+
+repp <- ggplot(etprir, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Primary Republican Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept = 22475434, slope = 34509)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+demp <- ggplot(etprid, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Primary Democratic Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept=47762544, slope=68874)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+repg <- ggplot(rpres, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Republican General Presidential Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept=13774667, slope=73413)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+demg <- ggplot(dpres, aes(x=newdate, y=cumsum, colour=election_tp))+
+  geom_line()+ggtitle("Democratic General Presidential Contributions Received 2008 and 2012")+
+  xlab("Contribution Date")+ylab("Cumulative Sum of Contributions")+
+  geom_abline(intercept=20133053, slope=108215)+
+  theme(axis.text.x = element_text(size=12.5))+
+  theme(axis.text.y = element_text(size=12.5))+
+  theme(title=element_text(size=16))
+
+multiplot(repp, demp, repg, demg, cols=2)
+
+grid.arrange(repp, demp, repg, demg) ncols=2, main="Multiple plots on the same page")
+```
+
+##Contributors who contributed in 2008 and 2012:
+
+```{r, echo=TRUE, results='asis'}
+
+eightcont <- unique(eight$contbr_nm)
+twelvecont <- unique(twelve$contbr_nm)
+table(eightcont %in% twelvecont)
+
+OR
+
+length(unique(eight$contbr_nm)) + length(unique(twelve$contbr_nm)) - length(unique(data$contbr_nm))
+
+26755/length(unique(data$contbr_nm))
+
+#About 14% that contributred in 2008, contributed in 2012
+
+#Done with Nader:
+
+eight$contb_receipt_dt <- as.Date(eight$contb_receipt_dt, "%m/%d/%y")
+twelve$contb_receipt_dt <- as.Date(twelve$contb_receipt_dt, "%m/%d/%Y")
+eight2 <- subset(eight, contb_receipt_dt >= "2007-01-01" & contb_receipt_dt < "2009-01-01")
+twelve2 <- subset(twelve, contb_receipt_dt >= "2011-01-01" & contb_receipt_dt < "2013-01-01")
+data <- rbind(eight2, twelve2)
+
+data <- data[order(data$contb_receipt_dt),]
+
+plot(data$contb_receipt_dt, data$receipt_amt_time)
+
+plot(eight2$contb_receipt_dt, eight2$receipt_amt_time)
+abline(lm(receipt_amt_time~contb_receipt_dt,data=eight2))
+
+eight2$newdate <- eight2$contb_receipt_dt-as.Date("2009-01-01")
+abline(lm(receipt_amt_time~newdate,data=eight2))
+
+twelve2$newdate <- twelve2$contb_receipt_dt-as.Date("2013-01-01")
+
+datanewcol <- rbind(eight2, twelve2)
+plot(datanewcol$newdate, datanewcol$receipt_amt_time)
+abline(lm(receipt_amt_time~newdate,data=datanewcol))
+
